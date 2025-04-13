@@ -28,6 +28,7 @@ model Book {
   location     String
   contactInfo  String
   status       BookStatus @default(AVAILABLE)
+  coverImage   String?    // New field for book cover image URL
 
   // Owner relation
   ownerId      String

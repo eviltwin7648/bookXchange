@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,20 +12,78 @@ import { Loader2, ArrowLeft } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 
-export default function AddBookPage() {
-  const router = useRouter()
+type BookData = {
+  id: string
+  title: string
+  author: string
+  genre: string
+  location: string
+  contactInfo: string
+  coverImage?: string
+}
 
-  const [form, setForm] = useState({
+export default function EditBookPage({ params }: { params: { id: string } }) {
+  const router = useRouter()
+  const bookId = params.id
+
+  const [form, setForm] = useState<BookData>({
+    id: '',
     title: '',
     author: '',
     genre: '',
     location: '',
     contactInfo: '',
+    coverImage: '',
   })
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null)
   const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchBookDetails()
+  }, [bookId])
+
+  const fetchBookDetails = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      if (!user?.id) {
+        toast.error('You must be logged in to edit a book')
+        router.push('/login')
+        return
+      }
+
+      const response = await api.get(`/books/${bookId}`)
+      const bookData = response.data
+
+      // Check if current user is the owner
+      if (bookData.ownerId !== user.id) {
+        toast.error('You can only edit your own books')
+        router.push('/dashboard')
+        return
+      }
+
+      setForm({
+        id: bookData.id,
+        title: bookData.title,
+        author: bookData.author,
+        genre: bookData.genre || '',
+        location: bookData.location,
+        contactInfo: bookData.contactInfo,
+        coverImage: bookData.coverImage || '',
+      })
+
+      if (bookData.coverImage) {
+        setCoverImagePreview(bookData.coverImage)
+      }
+
+      setLoading(false)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to load book details')
+      router.push('/dashboard')
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -47,18 +105,18 @@ export default function AddBookPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setSaving(true)
 
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}')
       if (!user?.id || user?.role !== 'OWNER') {
-        toast.error('Only owners can add books.')
+        toast.error('Only owners can edit books')
         return
       }
 
-      let imageUrl = ''
+      let imageUrl = form.coverImage
       
-      // Handle image upload if a file was selected
+      // Handle image upload if a new file was selected
       if (coverImageFile) {
         const formData = new FormData()
         formData.append('image', coverImageFile)
@@ -73,20 +131,27 @@ export default function AddBookPage() {
         imageUrl = uploadResponse.data.imageUrl
       }
 
-      const payload = { 
-        ...form, 
-        ownerId: user.id,
-        coverImage: imageUrl || undefined
-      }
+      // Update the book with all data including the image URL
+      await api.put(`/books/${bookId}`, {
+        ...form,
+        coverImage: imageUrl,
+      })
 
-      await api.post('/books', payload)
-      toast.success('Book listed successfully!')
+      toast.success('Book updated successfully!')
       router.push('/dashboard')
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Something went wrong')
+      toast.error(err.response?.data?.message || 'Failed to update book')
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -97,7 +162,7 @@ export default function AddBookPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold">📚 Add a Book</h1>
+        <h1 className="text-3xl font-bold">📚 Edit Book</h1>
       </div>
 
       <Card>
@@ -105,56 +170,27 @@ export default function AddBookPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <Label>Title</Label>
-              <Input 
-                name="title" 
-                value={form.title} 
-                onChange={handleChange} 
-                required 
-                placeholder="e.g. Atomic Habits" 
-              />
+              <Input name="title" value={form.title} onChange={handleChange} required />
             </div>
             <div>
               <Label>Author</Label>
-              <Input 
-                name="author" 
-                value={form.author} 
-                onChange={handleChange} 
-                required 
-                placeholder="e.g. James Clear" 
-              />
+              <Input name="author" value={form.author} onChange={handleChange} required />
             </div>
             <div>
               <Label>Genre</Label>
-              <Input 
-                name="genre" 
-                value={form.genre} 
-                onChange={handleChange} 
-                placeholder="e.g. Self-help" 
-              />
+              <Input name="genre" value={form.genre} onChange={handleChange} />
             </div>
             <div>
               <Label>Location</Label>
-              <Input 
-                name="location" 
-                value={form.location} 
-                onChange={handleChange} 
-                required 
-                placeholder="e.g. Delhi" 
-              />
+              <Input name="location" value={form.location} onChange={handleChange} required />
             </div>
             <div>
               <Label>Contact Info</Label>
-              <Textarea 
-                name="contactInfo" 
-                value={form.contactInfo} 
-                onChange={handleChange} 
-                required 
-                placeholder="Your contact details here" 
-              />
+              <Textarea name="contactInfo" value={form.contactInfo} onChange={handleChange} required />
             </div>
             
             <div>
-              <Label>Cover Image (Optional)</Label>
+              <Label>Cover Image</Label>
               <div className="mt-2">
                 <Input 
                   type="file" 
@@ -174,9 +210,9 @@ export default function AddBookPage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Submitting...' : 'Add Book'}
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saving ? 'Saving Changes...' : 'Save Changes'}
             </Button>
           </form>
         </CardContent>

@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 type User = {
   id: string
@@ -21,6 +23,7 @@ type Book = {
   location: string
   contactInfo: string
   status: string
+  coverImage?: string
   owner: {
     name: string
     email: string
@@ -50,6 +53,23 @@ export default function Home() {
     }
 
     fetchBooks()
+
+    // Listen for user changes
+    const handleUserChange = () => {
+      const updatedUser = localStorage.getItem('user')
+      if (updatedUser) {
+        try {
+          setUser(JSON.parse(updatedUser))
+        } catch (err) {
+          setUser(null)
+        }
+      } else {
+        setUser(null)
+      }
+    }
+
+    window.addEventListener('userChanged', handleUserChange)
+    return () => window.removeEventListener('userChanged', handleUserChange)
   }, [])
 
   const fetchBooks = async () => {
@@ -64,6 +84,7 @@ export default function Home() {
       setBooks(res.data)
     } catch (err) {
       console.error('Failed to fetch books', err)
+      toast.error('Failed to load books')
     } finally {
       setLoading(false)
     }
@@ -75,14 +96,18 @@ export default function Home() {
   }
 
   const handleClaim = async (bookId: string) => {
-    if (!user?.id) return
+    if (!user?.id) {
+      toast.error('Please login to claim a book')
+      return
+    }
 
     try {
-      await api.patch(`/books/${bookId}/status`, { status: 'RENTED' })
       await api.patch(`/books/${bookId}/claim`, { userId: user.id })
+      toast.success('Book claimed successfully!')
       fetchBooks()
     } catch (err) {
       console.error('Error claiming book', err)
+      toast.error('Failed to claim book')
     }
   }
 
@@ -123,17 +148,28 @@ export default function Home() {
 
       {/* Book List */}
       {loading ? (
-        <p>Loading books...</p>
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
       ) : books.length === 0 ? (
-        <p>No books listed yet.</p>
+        <p className="text-center py-10 text-muted-foreground">No books found matching your criteria.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {books.map((book) => (
-            <Card key={book.id}>
-              <CardContent className="p-4 space-y-2">
+            <Card key={book.id} className="overflow-hidden">
+              {book.coverImage && (
+                <div className="h-48 overflow-hidden">
+                  <img 
+                    src={book.coverImage} 
+                    alt={book.title} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <CardContent className={`p-4 space-y-2 ${!book.coverImage ? 'pt-6' : ''}`}>
                 <h2 className="text-xl font-semibold">{book.title}</h2>
                 <p><strong>Author:</strong> {book.author}</p>
-                <p><strong>Genre:</strong> {book.genre}</p>
+                <p><strong>Genre:</strong> {book.genre || 'Not specified'}</p>
                 <p><strong>Location:</strong> {book.location}</p>
                 <p><strong>Status:</strong> {book.status}</p>
                 <div className="text-sm text-muted-foreground mt-2">
@@ -147,8 +183,8 @@ export default function Home() {
                 ) : (
                   book.status === 'AVAILABLE' &&
                   user?.id !== book.owner.id && (
-                    <Button size="sm" onClick={() => handleClaim(book.id)}>
-                      Claim
+                    <Button size="sm" onClick={() => handleClaim(book.id)} className="w-full mt-3">
+                      Claim This Book
                     </Button>
                   )
                 )}
