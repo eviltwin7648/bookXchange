@@ -2,6 +2,10 @@
 
 BookBuddy is a platform that allows users to share, exchange, and borrow books within a community. This application is built with Next.js for the frontend, Express.js for the backend, and PostgreSQL for the database.
 
+## Link 
+
+https://book-xchange-nine.vercel.app/
+
 ## Repository Structure
 
 ```
