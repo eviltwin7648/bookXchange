@@ -160,7 +160,7 @@ export default function Home() {
               {book.coverImage && (
                 <div className="h-48 overflow-hidden">
                   <img 
-                    src={`${process.env.API_URL}${book.coverImage}`} 
+                    src={`${process.env.NEXT_PUBLIC_API_URL}${book.coverImage}`} 
                     alt={book.title} 
                     className="w-full h-full object-cover"
                   />
