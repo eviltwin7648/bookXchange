@@ -41,7 +41,7 @@ export default function Home() {
   const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
-
+  console.log(books)
   useEffect(() => {
     const storedUser = localStorage.getItem('user')
     if (storedUser) {
@@ -160,7 +160,7 @@ export default function Home() {
               {book.coverImage && (
                 <div className="h-48 overflow-hidden">
                   <img 
-                    src={book.coverImage} 
+                    src={`${process.env.API_URL}${book.coverImage}`} 
                     alt={book.title} 
                     className="w-full h-full object-cover"
                   />

@@ -64,7 +64,7 @@ export default function AddBookPage() {
         formData.append('image', coverImageFile)
         
         // Upload the image first
-        const uploadResponse = await api.post('/upload', formData, {
+        const uploadResponse = await api.post('/books/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
